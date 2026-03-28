@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE 10 DEADLY CAPTCHAs</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/pyodide@0.24.1/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --red:   #ff0040;
+            --green: #00ff40;
+            --orange:#ff6600;
+            --yellow:#ffff00;
+            --bg:    #0a0a0a;
+            --bg2:   #111111;
+            --bg3:   #1a1a1a;
+            --border:#333333;
+            --text:  #cccccc;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            /* Cursor will be set dynamically by JS */
+            background: var(--bg);
+            color: var(--red);
+            font-family: 'VT323', monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ===== CUSTOM CURSOR ===== */
+        #sonic-cursor {
+            width: 18px;
+            height: 18px;
+            background: var(--red);
+            border: 2px solid #fff;
+            border-radius: 2px;
+            position: fixed;
+            z-index: 999999;
+            pointer-events: none;
+            box-shadow: 0 0 12px var(--red), 0 0 24px rgba(255,0,64,0.4);
+            display: none;
+            transform: translate(-50%, -50%);
+            transition: background 0.05s;
+        }
+        #sonic-cursor.loud { background: var(--green); box-shadow: 0 0 12px var(--green); }
+
+        /* ===== FLASH OVERLAY ===== */
+        #flash-overlay {
+            position: fixed; inset: 0;
+            background: red;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 888888;
+            transition: opacity 0.08s;
+        }
+        #flash-overlay.active { opacity: 0.75; }
+
+        /* ===== START SCREEN ===== */
+        #start-screen {
+            position: fixed; inset: 0;
+            background: #000;
+            z-index: 777777;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        #start-screen h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(1.5rem, 5vw, 3rem);
+            color: var(--red);
+            text-shadow: 0 0 20px var(--red);
+            letter-spacing: 4px;
+            animation: glitch 3s infinite;
+        }
+        #start-screen p {
+            font-family: 'Space Mono', monospace;
+            color: #aaa;
+            text-align: center;
+            max-width: 500px;
+            font-size: 0.85rem;
+            line-height: 1.7;
+            border: 1px solid #333;
+            padding: 20px;
+        }
+        #start-screen p strong { color: var(--red); }
+        #start-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.4rem;
+            padding: 16px 48px;
+            background: var(--red);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: background 0.15s, transform 0.15s;
+        }
+        #start-btn:hover { background: var(--green); transform: scale(1.04); }
+
+        /* ===== GLOBAL MIC BAR (top-right) ===== */
+        #global-mic {
+            position: fixed;
+            top: 10px; right: 10px;
+            width: 160px;
+            z-index: 99999;
+            display: none;
+        }
+        #global-mic-label { font-size: 0.85rem; color: #666; margin-bottom: 3px; }
+        #global-mic-track {
+            width: 100%; height: 14px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #global-mic-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+            transition: width 0.05s;
+        }
+        #global-mic-pct {
+            font-size: 0.8rem;
+            color: #888;
+            text-align: right;
+            margin-top: 2px;
+        }
+
+        /* ===== GAME CONTAINER ===== */
+        #game-container {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 20px;
+            display: none;
+        }
+
+        /* ===== TITLE ===== */
+        #title {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(1.4rem, 4vw, 2.4rem);
+            text-align: center;
+            color: var(--red);
+            text-shadow: 0 0 20px var(--red), 0 0 40px rgba(255,0,64,0.3);
+            margin-bottom: 8px;
+            letter-spacing: 4px;
+            animation: glitch 3s infinite;
+        }
+
+        #progress-bar {
+            width: 100%; height: 6px;
+            background: var(--bg3);
+            border: 1px solid var(--red);
+            margin-bottom: 4px;
+            border-radius: 1px;
+            overflow: hidden;
+        }
+        #progress-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--red), var(--orange));
+            transition: width 0.6s ease;
+        }
+        #progress-label {
+            text-align: center;
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 20px;
+            animation: blink 1.2s step-end infinite;
+        }
+
+        /* ===== RULE CARDS ===== */
+        .rule {
+            display: none;
+            border: 3px solid var(--red);
+            padding: 20px;
+            margin-bottom: 20px;
+            background: var(--bg2);
+            position: relative;
+            box-shadow: 0 0 18px rgba(255,0,64,0.2), inset 0 0 40px rgba(0,0,0,0.6);
+            animation: ruleAppear 0.4s ease-out;
+        }
+        .rule.active { display: block; }
+        .rule.solved {
+            border-color: var(--green);
+            box-shadow: 0 0 18px rgba(0,255,64,0.2);
+        }
+        .rule.solved .rule-header { color: var(--green); border-bottom-color: var(--green); }
+
+        .rule-header {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.3rem;
+            color: var(--red);
+            border-bottom: 2px solid var(--red);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+        }
+        .rule-desc {
+            font-size: 1.15rem;
+            color: var(--text);
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+        .rule-desc code {
+            background: #222;
+            color: var(--orange);
+            padding: 1px 5px;
+            border: 1px solid var(--orange);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* ===== RULE 1: SONIC CURSOR ===== */
+        #r1-wrapper { position: relative; min-height: 100px; }
+        #target-box {
+            width: 140px; height: 48px;
+            background: #0d1a0d;
+            border: 2px solid var(--green);
+            color: var(--green);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            position: absolute;
+            right: 0; top: 0;
+            user-select: none;
+            box-shadow: 0 0 10px rgba(0,255,64,0.3);
+            transition: transform 0.12s ease-out;
+        }
+        #mic-bar-track {
+            width: 100%; height: 18px;
+            background: #1a1a1a;
+            border: 1px solid var(--orange);
+            margin-top: 10px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #mic-bar-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+            transition: width 0.05s;
+        }
+        #mic-hint { font-size: 1rem; color: #666; margin-top: 6px; }
+
+        /* ===== RULE 2: PYODIDE ===== */
+        #py-target-display {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.6rem;
+            color: var(--yellow);
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        #python-editor {
+            width: 100%; height: 160px;
+            background: #050505;
+            color: var(--green);
+            border: 2px solid var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            padding: 10px;
+            resize: vertical;
+            outline: none;
+            tab-size: 4;
+        }
+        #python-editor:focus { box-shadow: 0 0 10px rgba(0,255,64,0.4); }
+        #pyodide-test-btn {
+            display: block;
+            margin: 10px auto 0;
+            padding: 10px 36px;
+            background: var(--red);
+            color: #000;
+            border: none;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: background 0.15s;
+        }
+        #pyodide-test-btn:hover { background: var(--orange); }
+        #pyodide-test-btn:disabled { background: #555; cursor: default; }
+        #pyodide-output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #050505;
+            border: 1px solid #333;
+            color: var(--text);
+            min-height: 36px;
+            font-size: 1rem;
+            word-break: break-all;
+        }
+        #py-timer-bar-track {
+            width: 100%; height: 6px;
+            background: #222;
+            border: 1px solid #444;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        #py-timer-bar-fill {
+            height: 100%;
+            background: var(--orange);
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        /* ===== RULE 3: JANITOR ===== */
+        #janitor-status {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--green);
+            margin-top: 8px;
+            min-height: 28px;
+        }
+        #trash-can {
+            font-size: 3.5rem;
+            display: inline-block;
+            user-select: none;
+            vertical-align: middle;
+        }
+        @keyframes trash-shake {
+            0%,100% { transform: rotate(0deg); }
+            20% { transform: rotate(-8deg); }
+            40% { transform: rotate(8deg); }
+            60% { transform: rotate(-6deg); }
+            80% { transform: rotate(6deg); }
+        }
+        #trash-can.shaking { animation: trash-shake 0.15s infinite; }
+
+        .paper-ball {
+            width: 28px; height: 28px;
+            background: radial-gradient(circle at 40% 35%, #fff, #ccc);
+            border-radius: 50%;
+            position: fixed;
+            cursor: grab;
+            z-index: 10000;
+            box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
+            user-select: none;
+            touch-action: none;
+        }
+        .paper-ball.dragging { cursor: grabbing; opacity: 0.85; box-shadow: 0 0 14px var(--yellow); }
+
+        /* ===== RULE 4: FLAPPY ===== */
+        #flappy-canvas {
+            display: block;
+            margin: 0 auto;
+            border: 3px solid var(--orange);
+            background: #87CEEB;
+            max-width: 100%;
+        }
+        #flappy-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 1.2rem;
+            color: var(--orange);
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* ===== RULE 5 & 7 & 9: CAMERA FEEDS ===== */
+        video { display: none; }
+        .feed-canvas {
+            display: block;
+            margin: 10px auto;
+            border: 2px solid var(--red);
+            max-width: 100%;
+            background: #000;
+            border-radius: 2px;
+        }
+        .eye-badges {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            padding: 5px 14px;
+            border: 2px solid var(--red);
+            color: var(--red);
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .badge.ok { border-color: var(--green); color: var(--green); }
+        #vulcan-status, #squat-status {
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.2rem;
+            margin-top: 8px;
+            padding: 8px;
+            border: 2px solid var(--red);
+            color: var(--red);
+            transition: color 0.2s, border-color 0.2s;
+        }
+        #vulcan-status.ok, #squat-status.ok {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        /* ===== RULE 6: FRACTAL ===== */
+        #fractal-outer {
+            width: 100%;
+            height: 320px;
+            overflow: hidden;
+            border: 2px solid var(--red);
+            position: relative;
+            background: #0d0d0d;
+            cursor: none;
+        }
+        #fractal-container {
+            width: 100%; height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            transform-origin: top left;
+        }
+        .f-grid {
+            display: grid;
+            width: 100%; height: 100%;
+        }
+        .f-cell {
+            border: 1px solid #2a2a2a;
+            background: #111;
+            cursor: none;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .f-cell:hover { background: #1e1e1e; border-color: #444; }
+        .f-cell.has-dot { background: #1a0505; }
+        .f-dot {
+            width: 10px; height: 10px;
+            background: var(--red);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--red);
+            pointer-events: none;
+        }
+        .f-cell.found { background: rgba(0,255,64,0.1) !important; border-color: var(--green) !important; }
+        #fractal-hint {
+            text-align: center;
+            color: var(--orange);
+            font-size: 1.1rem;
+            margin-top: 6px;
+        }
+
+        /* ===== RULE 8: ARITHMETIC ===== */
+        #calc-info {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.3rem;
+            color: var(--yellow);
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        #calc-display {
+            font-family: 'Space Mono', monospace;
+            font-size: 2rem;
+            color: var(--green);
+            text-align: center;
+            border: 2px solid var(--green);
+            background: #050505;
+            padding: 10px;
+            min-height: 56px;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+        }
+        #numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            max-width: 260px;
+            margin: 0 auto;
+        }
+        .num-btn {
+            padding: 14px;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.4rem;
+            background: #1a1a1a;
+            color: var(--red);
+            border: 2px solid var(--red);
+            cursor: pointer;
+            transition: background 0.1s, color 0.1s;
+        }
+        .num-btn:hover { background: var(--red); color: #000; }
+        .num-btn.clear-btn { color: var(--orange); border-color: var(--orange); }
+        .num-btn.clear-btn:hover { background: var(--orange); color: #000; }
+        .num-btn.enter-btn { color: var(--green); border-color: var(--green); }
+        .num-btn.enter-btn:hover { background: var(--green); color: #000; }
+
+        /* ===== RULE 10: FINALE ===== */
+        #req-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .req-item {
+            padding: 10px;
+            border: 2px solid #333;
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            color: #555;
+            transition: all 0.2s;
+        }
+        .req-item.met { border-color: var(--green); color: var(--green); }
+        #scream-bar-track {
+            width: 100%; height: 26px;
+            background: var(--bg3);
+            border: 2px solid var(--red);
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        #scream-bar-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow));
+            transition: width 0.1s;
+        }
+        #scream-label {
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 1.2rem;
+            color: var(--orange);
+        }
+
+        /* ===== VICTORY ===== */
+        #victory-screen {
+            position: fixed; inset: 0;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        }
+        #victory-screen.show { display: flex; }
+        #victory-text {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(2rem, 8vw, 5rem);
+            color: var(--green);
+            text-shadow: 0 0 30px var(--green), 0 0 60px rgba(0,255,64,0.4);
+            animation: vpulse 1s ease-in-out infinite;
+            text-align: center;
+            letter-spacing: 4px;
+        }
+        #victory-sub {
+            font-size: 1.4rem;
+            color: #555;
+            margin-top: 16px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* ===== KEYFRAMES ===== */
+        @keyframes glitch {
+            0%,88%,100% { transform: none; text-shadow: 0 0 20px var(--red), 0 0 40px rgba(255,0,64,0.3); }
+            90% { transform: translateX(-3px) skew(-1deg); text-shadow: 3px 0 0 cyan, -3px 0 0 var(--red); }
+            92% { transform: translateX(3px) skew(1deg); text-shadow: -3px 0 0 cyan, 3px 0 0 var(--red); }
+            94% { transform: translateX(-2px); }
+            96% { transform: translateX(0); }
+        }
+        @keyframes ruleAppear {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes blink {
+            0%,49%  { opacity: 1; }
+            50%,100%{ opacity: 0.3; }
+        }
+        @keyframes vpulse {
+            0%,100% { transform: scale(1); }
+            50%     { transform: scale(1.06); }
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--red); }
+    </style>
+</head>
+<body>
+
+<!-- ======================== DOM ======================== -->
+
+<div id="flash-overlay"></div>
+<div id="sonic-cursor"></div>
+
+<!-- Global Mic Indicator -->
+<div id="global-mic">
+    <div id="global-mic-label">MIC</div>
+    <div id="global-mic-track"><div id="global-mic-fill"></div></div>
+    <div id="global-mic-pct">0%</div>
+</div>
+
+<!-- Start Screen -->
+<div id="start-screen">
+    <h1>SYSTEM INITIALIZATION</h1>
+    <p>
+        This verification requires <strong>Microphone</strong> and <strong>Camera</strong> access.<br><br>
+        Do <strong>NOT</strong> switch tabs. Do <strong>NOT</strong> paste code.<br>
+        Do <strong>NOT</strong> close this window.<br><br>
+        Failure will result in <strong>complete progression loss</strong>.
+    </p>
+    <button id="start-btn">▶ BEGIN VERIFICATION</button>
+</div>
+
+<!-- Victory Screen -->
+<div id="victory-screen">
+    <div id="victory-text">HUMANITY VERIFIED</div>
+    <div id="victory-sub">you are not a robot.</div>
+</div>
+
+<!-- Main Game -->
+<div id="game-container">
+    <h1 id="title">THE 10 DEADLY CAPTCHAs</h1>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <div id="progress-label">RULE 1 / 10</div>
+
+    <!-- RULE 1 -->
+    <div class="rule active" id="rule-1">
+        <div class="rule-header">RULE 1: THE SONIC CURSOR</div>
+        <div class="rule-desc">
+            Control the red cursor with <strong>WASD / Arrow Keys</strong> and your microphone.<br>
+            Voice &gt;50% → Only <strong>RIGHT</strong> and <strong>UP</strong> work. &nbsp; Voice ≤50% → Only <strong>LEFT</strong> and <strong>DOWN</strong> work.<br>
+            Hover the cursor over the green box and press <strong>ENTER</strong>.
+        </div>
+        <div id="r1-wrapper">
+            <div id="target-box">NOT A ROBOT</div>
+        </div>
+        <div id="mic-bar-track"><div id="mic-bar-fill"></div></div>
+        <div id="mic-hint">Mic volume: <span id="mic-pct-r1">0</span>%</div>
+    </div>
+
+    <!-- RULE 2 -->
+    <div class="rule" id="rule-2">
+        <div class="rule-header">RULE 2: THE PYODIDE SCREEN</div>
+        <div class="rule-desc">
+            Write a Python function <code>two_sum(nums, target)</code> that returns a list of two indices whose values sum to <em>target</em>. The target changes every 8 seconds.
+        </div>
+        <div id="py-target-display">TARGET: <span id="py-target-val">9</span></div>
+        <div id="py-timer-bar-track"><div id="py-timer-bar-fill"></div></div>
+        <textarea id="python-editor" spellcheck="false">def two_sum(nums, target):
+    # Your code here
+    pass</textarea>
+        <button id="pyodide-test-btn" disabled>Loading Python…</button>
+        <div id="pyodide-output">Initializing Pyodide engine…</div>
+    </div>
+
+    <!-- RULE 3 -->
+    <div class="rule" id="rule-3">
+        <div class="rule-header">RULE 3: THE JANITOR'S CURSE</div>
+        <div class="rule-desc">
+            Every ~15 seconds, paper balls scatter across the screen. Drag them back into the 🗑️ trash can within <strong>10 seconds</strong> or you will be demoted.
+        </div>
+        <div>
+            <span id="trash-can">🗑️</span>
+            <span id="janitor-status">ALL CLEAN ✓</span>
+        </div>
+    </div>
+
+    <!-- RULE 4 -->
+    <div class="rule" id="rule-4">
+        <div class="rule-header">RULE 4: VOCAL FLAPPY BIRD</div>
+        <div class="rule-desc">
+            Shout loud (&gt;60% mic) to fly up. Stay quiet to fall. Survive for <strong>15 seconds</strong> without hitting pipes or walls.
+        </div>
+        <canvas id="flappy-canvas" width="480" height="280"></canvas>
+        <div id="flappy-info">
+            <span>TIME: <span id="flappy-time">0.0</span>s</span>
+            <span>BEST: <span id="flappy-best">0.0</span>s</span>
+        </div>
+    </div>
+
+    <!-- RULE 5 -->
+    <div class="rule" id="rule-5">
+        <div class="rule-header">RULE 5: ASYMMETRIC STARE</div>
+        <div class="rule-desc">
+            Keep your <strong>LEFT eye CLOSED</strong> and <strong>RIGHT eye OPEN</strong> simultaneously. Hold it steady.
+        </div>
+        <video id="face-video" autoplay playsinline muted></video>
+        <canvas class="feed-canvas" id="face-canvas" width="320" height="240"></canvas>
+        <div class="eye-badges">
+            <span class="badge" id="badge-left">LEFT: OPEN ❌</span>
+            <span class="badge" id="badge-right">RIGHT: OPEN ✓</span>
+        </div>
+    </div>
+
+    <!-- RULE 6 -->
+    <div class="rule" id="rule-6">
+        <div class="rule-header">RULE 6: FRACTAL CAPTCHA</div>
+        <div class="rule-desc">
+            Click cells to split them deeper. Find and click all <strong>3 hidden red dots</strong>. Use <strong>Shift+Scroll</strong> to zoom.
+        </div>
+        <div id="fractal-outer">
+            <div id="fractal-container"></div>
+        </div>
+        <div id="fractal-hint">FOUND: <span id="f-count">0</span> / 3</div>
+    </div>
+
+    <!-- RULE 7 -->
+    <div class="rule" id="rule-7">
+        <div class="rule-header">RULE 7: VULCAN SALUTE</div>
+        <div class="rule-desc">
+            Hold up your hand in the Star Trek Vulcan Salute 🖖 (split between middle and ring fingers, index+middle close, ring+pinky close).
+        </div>
+        <video id="hands-video" autoplay playsinline muted></video>
+        <canvas class="feed-canvas" id="hands-canvas" width="320" height="240"></canvas>
+        <div id="vulcan-status">NOT DETECTED ❌</div>
+    </div>
+
+    <!-- RULE 8 -->
+    <div class="rule" id="rule-8">
+        <div class="rule-header">RULE 8: ARITHMETIC</div>
+        <div class="rule-desc">
+            Calculate: <strong>Hours + Minutes + Seconds + Battery%</strong> of the current moment. Enter via the on-screen numpad only. Answer within ±10 is accepted.
+        </div>
+        <div id="calc-info">
+            <span id="clock-disp">00:00:00</span> &nbsp;|&nbsp; BATTERY: <span id="batt-disp">100</span>%
+        </div>
+        <div id="calc-display">_</div>
+        <div id="numpad">
+            <button class="num-btn" onclick="numpadPress('7')">7</button>
+            <button class="num-btn" onclick="numpadPress('8')">8</button>
+            <button class="num-btn" onclick="numpadPress('9')">9</button>
+            <button class="num-btn" onclick="numpadPress('4')">4</button>
+            <button class="num-btn" onclick="numpadPress('5')">5</button>
+            <button class="num-btn" onclick="numpadPress('6')">6</button>
+            <button class="num-btn" onclick="numpadPress('1')">1</button>
+            <button class="num-btn" onclick="numpadPress('2')">2</button>
+            <button class="num-btn" onclick="numpadPress('3')">3</button>
+            <button class="num-btn clear-btn" onclick="numpadPress('C')">CLR</button>
+            <button class="num-btn" onclick="numpadPress('0')">0</button>
+            <button class="num-btn enter-btn" onclick="numpadPress('E')">ENT</button>
+        </div>
+    </div>
+
+    <!-- RULE 9 -->
+    <div class="rule" id="rule-9">
+        <div class="rule-header">RULE 9: ERGONOMIC SQUAT</div>
+        <div class="rule-desc">
+            Step back from the camera so your full body is visible. Hold a <strong>squat</strong> — hip-knee-ankle angle between <strong>80° and 100°</strong>.
+        </div>
+        <video id="pose-video" autoplay playsinline muted></video>
+        <canvas class="feed-canvas" id="pose-canvas" width="320" height="240"></canvas>
+        <div id="squat-status">ANGLE: --</div>
+    </div>
+
+    <!-- RULE 10 -->
+    <div class="rule" id="rule-10">
+        <div class="rule-header">RULE 10: THE PRIMAL SCREAM</div>
+        <div class="rule-desc">
+            Hold ALL conditions simultaneously and scream (&gt;95% mic) for <strong>3 continuous seconds</strong>.
+        </div>
+        <div id="req-grid">
+            <div class="req-item" id="req-squat">🏋️ SQUAT</div>
+            <div class="req-item" id="req-vulcan">🖖 VULCAN</div>
+            <div class="req-item" id="req-eye">👁️ LEFT CLOSED</div>
+            <div class="req-item" id="req-scream">🔊 SCREAMING</div>
+        </div>
+        <div id="scream-bar-track"><div id="scream-bar-fill"></div></div>
+        <div id="scream-label">SCREAM TO COMPLETE</div>
+    </div>
+
+</div><!-- /game-container -->
+
+<!-- ======================== SCRIPTS ======================== -->
+<script>
+"use strict";
+
+// ======================================================
+//  GLOBAL STATE
+// ======================================================
+const S = {
+    started:     false,
+    currentRule: 1,
+    solved:      new Array(11).fill(false),  // 1-indexed; solved[n] = rule n is done
+    keys:        {},
+
+    // Cursor
+    cx: 0, cy: 0,
+
+    // Audio
+    audioCtx: null, analyser: null, dataArr: null,
+    micVol: 0,  // 0–100
+
+    // Pyodide
+    pyodide: null, pyTarget: 9, pyReady: false,
+    pyTimerInterval: null,
+
+    // Janitor
+    trashStarted: false, balls: [], janitorInterval: null,
+
+    // Flappy
+    flappyActive: false, flappyBest: 0,
+
+    // Camera flags
+    faceInit: false, handsInit: false, poseInit: false,
+
+    // Calc
+    calcStr: "",
+    battery: 100,
+
+    // Finale
+    screamMs: 0,
+};
+
+// ======================================================
+//  ANTI-CHEAT
+// ======================================================
+function punish(reason) {
+    const fl = document.getElementById('flash-overlay');
+    fl.classList.add('active');
+    setTimeout(() => {
+        alert(`⚠ ANTI-CHEAT TRIGGERED\n${reason}\n\nRestarting...`);
+        location.reload();
+    }, 60);
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (S.started && document.visibilityState === 'hidden') punish("Tab switch detected.");
+});
+
+document.getElementById('python-editor').addEventListener('paste', e => {
+    e.preventDefault();
+    punish("Pasting code is forbidden.");
+});
+
+// Block keyboard-based numpad input (Rule 8 must use on-screen buttons)
+document.addEventListener('keydown', e => {
+    // Allow typing in the Python editor naturally
+    const tag = e.target.tagName.toLowerCase();
+    const isEditor = (tag === 'textarea' || tag === 'input');
+
+    // Store key state regardless
+    S.keys[e.key] = true;
+
+    if (isEditor) return; // Don't intercept for editor
+
+    // Rule 1 ENTER to submit
+    if (e.key === 'Enter' && S.currentRule === 1) {
+        e.preventDefault();
+        tryRule1Submit();
+        return;
+    }
+
+    // Block digit keys when on Rule 8 (must use numpad buttons)
+    if (S.currentRule === 8 && /^\d$/.test(e.key)) {
+        e.preventDefault();
+    }
+
+    // Prevent space from scrolling
+    if (e.key === ' ') e.preventDefault();
+});
+
+document.addEventListener('keyup', e => { S.keys[e.key] = false; });
+
+// ======================================================
+//  START GATE
+// ======================================================
+    document.getElementById('start-btn').addEventListener('click', async () => {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'block';
+        S.started = true;
+
+        // Cursor initial position
+        S.cx = window.innerWidth  / 2;
+        S.cy = window.innerHeight / 2;
+
+        // Microphone
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            S.audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+            S.analyser  = S.audioCtx.createAnalyser();
+            S.analyser.fftSize = 256;
+            S.dataArr   = new Uint8Array(S.analyser.frequencyBinCount);
+            S.audioCtx.createMediaStreamSource(stream).connect(S.analyser);
+        } catch (err) {
+            alert("⚠ Microphone access is required! Please allow and reload.");
+        }
+
+        initPyodide();
+        initFractal();
+        initBattery();
+        updateCursorVisibility();
+        requestAnimationFrame(gameLoop);
+    });
+
+// ======================================================
+//  UNLOCK / DEMOTE
+// ======================================================
+function unlock(n) {
+    if (n < 1 || n > 10 || S.solved[n]) return;
+
+    S.solved[n] = true;
+    const prevEl = document.getElementById(`rule-${n}`);
+    if (prevEl) prevEl.classList.add('solved');
+
+    if (n === 10) {
+        // Show final rule
+        S.currentRule = 10;
+        document.getElementById('rule-10').classList.add('active');
+        updateProgress();
+        updateCursorVisibility();
+        return;
+    }
+
+    // Only unlock the next rule if the current rule is solved
+    const next = n + 1;
+    S.currentRule = next;
+    const nextEl = document.getElementById(`rule-${next}`);
+    if (nextEl) nextEl.classList.add('active');
+        updateProgress();
+        updateCursorVisibility();
+
+        // Side-effects per rule unlock
+        if (next === 3) {
+            startJanitor();
+            // Show rule 4 after 3 seconds
+            setTimeout(() => {
+                S.currentRule = 4;
+                const rule4 = document.getElementById('rule-4');
+                if (rule4) rule4.classList.add('active');
+                updateProgress();
+                updateCursorVisibility();
+                S.flappyActive = true;
+                resetFlappy();
+            }, 3000);
+        }
+        if (next === 4) { S.flappyActive = true; resetFlappy(); }
+        if (next === 5) initFace();
+        if (next === 7) initHands();
+        if (next === 9) initPose();
+}
+
+function demote() {
+    if (S.currentRule <= 2) return;
+    const cur = S.currentRule;
+    S.solved[cur - 1] = false;
+        const trashEl   = document.getElementById('trash-can');
+        const statusEl  = document.getElementById('janitor-status');
+
+        trashEl.classList.add('shaking');
+        setTimeout(() => trashEl.classList.remove('shaking'), 1200);
+
+        // Remove old balls
+        S.balls.forEach(b => b.remove());
+        S.balls = [];
+
+        const count = 6 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const ball = document.createElement('div');
+            ball.className = 'paper-ball';
+            ball.style.left   = `${Math.random() * (window.innerWidth  - 60) + 10}px`;
+            ball.style.top    = `${Math.random() * (window.innerHeight - 100) + 50}px`;
+            document.body.appendChild(ball);
+            S.balls.push(ball);
+            makeDraggable(ball);
+        }
+
+        let timeLeft = 10;
+        statusEl.style.color = 'var(--red)';
+        statusEl.innerText   = `CLEAN UP! ${timeLeft}s remaining`;
+
+        const countdown = setInterval(() => {
+            timeLeft--;
+            if (S.balls.length === 0) {
+                clearInterval(countdown);
+                statusEl.innerText = 'ALL CLEAN ✓';
+                statusEl.style.color = 'var(--green)';
+                return;
+            }
+            statusEl.innerText = `CLEAN UP! ${timeLeft}s remaining`;
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                S.balls.forEach(b => b.remove());
+                S.balls = [];
+                statusEl.innerText = 'FAILED — DEMOTED ↓';
+                statusEl.style.color = '#ff0040';
+                demote();
+            }
+        }, 1000);
+}
+
+function makeDraggable(el) {
+    let offX = 0, offY = 0;
+
+    el.addEventListener('mousedown', startDrag);
+    el.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        startDragAt(t.clientX, t.clientY);
+    }, { passive: true });
+
+    function startDrag(e) { startDragAt(e.clientX, e.clientY); }
+
+    function startDragAt(cx, cy) {
+        const rect = el.getBoundingClientRect();
+        offX = cx - rect.left;
+        offY = cy - rect.top;
+        el.classList.add('dragging');
+
+        function onMove(e) {
+            const x = (e.clientX || e.touches[0].clientX);
+            const y = (e.clientY || e.touches[0].clientY);
+            el.style.left = `${x - offX}px`;
+            el.style.top  = `${y - offY}px`;
+        }
+        function onUp() {
+            el.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup',   onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend',  onUp);
+            checkTrashDrop(el);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+        document.addEventListener('touchmove', onMove, { passive: true });
+        document.addEventListener('touchend',  onUp);
+    }
+}
+
+function checkTrashDrop(ball) {
+    const tr = document.getElementById('trash-can').getBoundingClientRect();
+    const br = ball.getBoundingClientRect();
+    const cx = br.left + br.width  / 2;
+    const cy = br.top  + br.height / 2;
+    if (cx > tr.left && cx < tr.right && cy > tr.top && cy < tr.bottom) {
+        ball.remove();
+        S.balls = S.balls.filter(b => b !== ball);
+    }
+}
+
+// ======================================================
+//  RULE 1: SONIC CURSOR
+// ======================================================
+const CURSOR_SPEED = 5;
+
+function updateCursor() {
+    const loud = S.micVol > 50;
+
+    const cursor = document.getElementById('sonic-cursor');
+    cursor.classList.toggle('loud', loud);
+
+    if (loud) {
+        if (S.keys['d'] || S.keys['ArrowRight']) S.cx += CURSOR_SPEED;
+        if (S.keys['w'] || S.keys['ArrowUp'])    S.cy -= CURSOR_SPEED;
+    } else {
+        if (S.keys['a'] || S.keys['ArrowLeft'])  S.cx -= CURSOR_SPEED;
+        if (S.keys['s'] || S.keys['ArrowDown'])  S.cy += CURSOR_SPEED;
+    }
+
+    // Clamp
+    S.cx = Math.max(0, Math.min(window.innerWidth,  S.cx));
+    S.cy = Math.max(0, Math.min(window.innerHeight, S.cy));
+
+    cursor.style.left = S.cx + 'px';
+    cursor.style.top  = S.cy + 'px';
+
+    // Target detection (only on rule 1)
+    if (S.currentRule === 1) {
+        const tb  = document.getElementById('target-box');
+        const tr  = tb.getBoundingClientRect();
+        const dist = Math.hypot(S.cx - (tr.left + tr.width/2), S.cy - (tr.top + tr.height/2));
+        
+        // Visual feedback when cursor is on target
+        if (dist < 110) {
+            tb.style.borderColor = 'var(--green)';
+            tb.style.color = 'var(--green)';
+            tb.style.transform = 'scale(1.05)';
+        } else {
+            tb.style.borderColor = 'var(--green)';
+            tb.style.color = 'var(--green)';
+            tb.style.transform = 'scale(1)';
+        }
+    }
+}
+
+function tryRule1Submit() {
+    if (S.currentRule !== 1) return;
+    const tb = document.getElementById('target-box').getBoundingClientRect();
+    const within = (S.cx >= tb.left && S.cx <= tb.right && S.cy >= tb.top && S.cy <= tb.bottom);
+    if (within) {
+        unlock(2);
+    } else {
+        punish("Pressed ENTER while cursor was not over the target box.");
+    }
+}
+
+// ======================================================
+//  RULE 2: PYODIDE
+// ======================================================
+let pyTimerSec = 8;
+let pyTimerCountdown = null;
+
+async function initPyodide() {
+    try {
+        S.pyodide = await loadPyodide();
+        S.pyReady = true;
+        const btn = document.getElementById('pyodide-test-btn');
+        btn.disabled = false;
+        btn.innerText = 'RUN TESTS';
+        document.getElementById('pyodide-output').innerText = 'Python ready. Write your solution.';
+        startPyTimer();
+    } catch(e) {
+        document.getElementById('pyodide-output').innerText = 'Failed to load Pyodide. Check network.';
+    }
+}
+
+function startPyTimer() {
+    pyTimerSec = 8;
+    document.getElementById('py-timer-bar-fill').style.transition = 'none';
+    document.getElementById('py-timer-bar-fill').style.width = '100%';
+    setTimeout(() => {
+        document.getElementById('py-timer-bar-fill').style.transition = 'width 8s linear';
+        document.getElementById('py-timer-bar-fill').style.width = '0%';
+    }, 50);
+
+    if (pyTimerCountdown) clearInterval(pyTimerCountdown);
+    pyTimerCountdown = setInterval(() => {
+        pyTimerSec--;
+        if (pyTimerSec <= 0) {
+            // Rotate target
+            S.pyTarget = Math.floor(Math.random() * 20) + 5;
+            document.getElementById('py-target-val').innerText = S.pyTarget;
+            startPyTimer();
+        }
+    }, 1000);
+}
+
+document.getElementById('pyodide-test-btn').addEventListener('click', async () => {
+    if (!S.pyReady || S.currentRule !== 2) return;
+    const code = document.getElementById('python-editor').value;
+
+    const testCode = `
+${code}
+try:
+    r1 = two_sum([2, 7, 11, 15], ${S.pyTarget})
+    r2 = two_sum([3, 2, 4], 6)
+    r3 = two_sum([1, 5, 3, 7], 8)
+    if isinstance(r1, list) and len(r1) == 2 and isinstance(r2, list) and len(r2) == 2:
+        out = f"PASS: two_sum([2,7,11,15], ${S.pyTarget}) = {r1}"
+    else:
+        out = f"FAIL: got {r1}"
+except Exception as e:
+    out = f"ERROR: {e}"
+out
+`.trim();
+
+    try {
+        const result = await S.pyodide.runPythonAsync(testCode);
+        document.getElementById('pyodide-output').innerText = result;
+        if (result.startsWith('PASS')) {
+            document.getElementById('pyodide-output').style.color = 'var(--green)';
+            unlock(2); // Only unlock rule 2, so rule 3 is not skipped
+        } else {
+            document.getElementById('pyodide-output').style.color = 'var(--red)';
+        }
+    } catch(e) {
+        document.getElementById('pyodide-output').innerText = `Syntax Error: ${e.message}`;
+        document.getElementById('pyodide-output').style.color = 'var(--red)';
+    }
+});
+
+// ======================================================
+//  RULE 3: JANITOR'S CURSE
+// ======================================================
+function startJanitor() {
+    if (S.trashStarted) return;
+    S.trashStarted = true;
+    S.janitorInterval = setInterval(maybeSpawnTrash, 15000);
+}
+
+function maybeSpawnTrash() {
+    if (Math.random() > 0.4) return; // 40% chance
+    spawnTrash();
+}
+
+function spawnTrash() {
+    const trashEl   = document.getElementById('trash-can');
+    const statusEl  = document.getElementById('janitor-status');
+
+    trashEl.classList.add('shaking');
+    setTimeout(() => trashEl.classList.remove('shaking'), 1200);
+
+    // Remove old balls
+    S.balls.forEach(b => b.remove());
+    S.balls = [];
+
+    const count = 6 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+        const ball = document.createElement('div');
+        ball.className = 'paper-ball';
+        ball.style.left   = `${Math.random() * (window.innerWidth  - 60) + 10}px`;
+        ball.style.top    = `${Math.random() * (window.innerHeight - 100) + 50}px`;
+        document.body.appendChild(ball);
+        S.balls.push(ball);
+        makeDraggable(ball);
+    }
+
+    let timeLeft = 10;
+    statusEl.style.color = 'var(--red)';
+    statusEl.innerText   = `CLEAN UP! ${timeLeft}s remaining`;
+
+    const countdown = setInterval(() => {
+        timeLeft--;
+        if (S.balls.length === 0) {
+            clearInterval(countdown);
+            statusEl.innerText = 'ALL CLEAN ✓';
+            statusEl.style.color = 'var(--green)';
+            return;
+        }
+        statusEl.innerText = `CLEAN UP! ${timeLeft}s remaining`;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            S.balls.forEach(b => b.remove());
+            S.balls = [];
+            statusEl.innerText = 'FAILED — DEMOTED ↓';
+            statusEl.style.color = '#ff0040';
+            demote();
+        }
+    }, 1000);
+}
+
+// --- Rule 4: Flappy ---
+if (S.flappyActive && S.currentRule >= 4 && S.currentRule <= 9) runFlappy();
+
+// --- Rule 10: Finale ---
+if (S.currentRule === 10) runFinale();
+
+requestAnimationFrame(gameLoop);
+}
+
+// ======================================================
+//  CURSOR VISIBILITY CONTROL
+// ======================================================
+function updateCursorVisibility() {
+    // Only hide mouse and show custom cursor for Rule 1 and Rule 6
+    const body = document.body;
+    const sonicCursor = document.getElementById('sonic-cursor');
+    if (S.currentRule === 1) {
+        body.style.cursor = 'none';
+        if (sonicCursor) sonicCursor.style.display = 'block';
+    } else if (S.currentRule === 6) {
+        body.style.cursor = 'none';
+        if (sonicCursor) sonicCursor.style.display = 'none';
+    } else {
+        body.style.cursor = 'auto';
+        if (sonicCursor) sonicCursor.style.display = 'none';
+    }
+}
+
+// ======================================================
+//  MIC UI
+// ======================================================
+function updateMicUI() {
+    const pct = S.micVol.toFixed(0);
+
+    // Rule 1 bar
+    document.getElementById('mic-bar-fill').style.width  = `${S.micVol}%`;
+    document.getElementById('mic-pct-r1').innerText      = pct;
+
+    // Global bar
+    document.getElementById('global-mic-fill').style.width = `${S.micVol}%`;
+    document.getElementById('global-mic-pct').innerText    = `${pct}%`;
+}
+
+// ======================================================
+//  RULE 1: SONIC CURSOR
+// ======================================================
+const CURSOR_SPEED = 5;
+
+function updateCursor() {
+    const loud = S.micVol > 50;
+
+    const cursor = document.getElementById('sonic-cursor');
+    cursor.classList.toggle('loud', loud);
+
+    if (loud) {
+        if (S.keys['d'] || S.keys['ArrowRight']) S.cx += CURSOR_SPEED;
+        if (S.keys['w'] || S.keys['ArrowUp'])    S.cy -= CURSOR_SPEED;
+    } else {
+        if (S.keys['a'] || S.keys['ArrowLeft'])  S.cx -= CURSOR_SPEED;
+        if (S.keys['s'] || S.keys['ArrowDown'])  S.cy += CURSOR_SPEED;
+    }
+
+    // Clamp
+    S.cx = Math.max(0, Math.min(window.innerWidth,  S.cx));
+    S.cy = Math.max(0, Math.min(window.innerHeight, S.cy));
+
+    cursor.style.left = S.cx + 'px';
+    cursor.style.top  = S.cy + 'px';
+
+    // Target detection (only on rule 1)
+    if (S.currentRule === 1) {
+        const tb  = document.getElementById('target-box');
+        const tr  = tb.getBoundingClientRect();
+        const dist = Math.hypot(S.cx - (tr.left + tr.width/2), S.cy - (tr.top + tr.height/2));
+        
+        // Visual feedback when cursor is on target
+        if (dist < 110) {
+            tb.style.borderColor = 'var(--green)';
+            tb.style.color = 'var(--green)';
+            tb.style.transform = 'scale(1.05)';
+        } else {
+            tb.style.borderColor = 'var(--green)';
+            tb.style.color = 'var(--green)';
+            tb.style.transform = 'scale(1)';
+        }
+    }
+}
+
+function tryRule1Submit() {
+    if (S.currentRule !== 1) return;
+    const tb = document.getElementById('target-box').getBoundingClientRect();
+    const within = (S.cx >= tb.left && S.cx <= tb.right && S.cy >= tb.top && S.cy <= tb.bottom);
+    if (within) {
+        unlock(2);
+    } else {
+        punish("Pressed ENTER while cursor was not over the target box.");
+    }
+}
+
+// ======================================================
+//  RULE 2: PYODIDE
+// ======================================================
+let pyTimerSec = 8;
+let pyTimerCountdown = null;
+
+async function initPyodide() {
+    try {
+        S.pyodide = await loadPyodide();
+        S.pyReady = true;
+        const btn = document.getElementById('pyodide-test-btn');
+        btn.disabled = false;
+        btn.innerText = 'RUN TESTS';
+        document.getElementById('pyodide-output').innerText = 'Python ready. Write your solution.';
+        startPyTimer();
+    } catch(e) {
+        document.getElementById('pyodide-output').innerText = 'Failed to load Pyodide. Check network.';
+    }
+}
+
+function startPyTimer() {
+    pyTimerSec = 8;
+    document.getElementById('py-timer-bar-fill').style.transition = 'none';
+    document.getElementById('py-timer-bar-fill').style.width = '100%';
+    setTimeout(() => {
+        document.getElementById('py-timer-bar-fill').style.transition = 'width 8s linear';
+        document.getElementById('py-timer-bar-fill').style.width = '0%';
+    }, 50);
+
+    if (pyTimerCountdown) clearInterval(pyTimerCountdown);
+    pyTimerCountdown = setInterval(() => {
+        pyTimerSec--;
+        if (pyTimerSec <= 0) {
+            // Rotate target
+            S.pyTarget = Math.floor(Math.random() * 20) + 5;
+            document.getElementById('py-target-val').innerText = S.pyTarget;
+            startPyTimer();
+        }
+    }, 1000);
+}
+
+document.getElementById('pyodide-test-btn').addEventListener('click', async () => {
+    if (!S.pyReady || S.currentRule !== 2) return;
+    const code = document.getElementById('python-editor').value;
+
+    const testCode = `
+${code}
+try:
+    r1 = two_sum([2, 7, 11, 15], ${S.pyTarget})
+    r2 = two_sum([3, 2, 4], 6)
+    r3 = two_sum([1, 5, 3, 7], 8)
+    if isinstance(r1, list) and len(r1) == 2 and isinstance(r2, list) and len(r2) == 2:
+        out = f"PASS: two_sum([2,7,11,15], ${S.pyTarget}) = {r1}"
+    else:
+        out = f"FAIL: got {r1}"
+except Exception as e:
+    out = f"ERROR: {e}"
+out
+`.trim();
+
+    try {
+        const result = await S.pyodide.runPythonAsync(testCode);
+        document.getElementById('pyodide-output').innerText = result;
+        if (result.startsWith('PASS')) {
+            document.getElementById('pyodide-output').style.color = 'var(--green)';
+            unlock(2); // Only unlock rule 2, so rule 3 is not skipped
+        } else {
+            document.getElementById('pyodide-output').style.color = 'var(--red)';
+        }
+    } catch(e) {
+        document.getElementById('pyodide-output').innerText = `Syntax Error: ${e.message}`;
+        document.getElementById('pyodide-output').style.color = 'var(--red)';
+    }
+});
+
+// ======================================================
+//  RULE 3: JANITOR'S CURSE
+// ======================================================
+function startJanitor() {
+    if (S.trashStarted) return;
+    S.trashStarted = true;
+    S.janitorInterval = setInterval(maybeSpawnTrash, 15000);
+}
+
+function maybeSpawnTrash() {
+    if (Math.random() > 0.4) return; // 40% chance
+    spawnTrash();
+}
+
+function spawnTrash() {
+    const trashEl   = document.getElementById('trash-can');
+    const statusEl  = document.getElementById('janitor-status');
+
+    trashEl.classList.add('shaking');
+    setTimeout(() => trashEl.classList.remove('shaking'), 1200);
+
+    // Remove old balls
+    S.balls.forEach(b => b.remove());
+    S.balls = [];
+
+    const count = 6 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+        const ball = document.createElement('div');
+        ball.className = 'paper-ball';
+        ball.style.left   = `${Math.random() * (window.innerWidth  - 60) + 10}px`;
+        ball.style.top    = `${Math.random() * (window.innerHeight - 100) + 50}px`;
+        document.body.appendChild(ball);
+        S.balls.push(ball);
+        makeDraggable(ball);
+    }
+
+    let timeLeft = 10;
+    statusEl.style.color = 'var(--red)';
+    statusEl.innerText   = `CLEAN UP! ${timeLeft}s remaining`;
+
+    const countdown = setInterval(() => {
+        timeLeft--;
+        if (S.balls.length === 0) {
+            clearInterval(countdown);
+            statusEl.innerText = 'ALL CLEAN ✓';
+            statusEl.style.color = 'var(--green)';
+            return;
+        }
+        statusEl.innerText = `CLEAN UP! ${timeLeft}s remaining`;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            S.balls.forEach(b => b.remove());
+            S.balls = [];
+            statusEl.innerText = 'FAILED — DEMOTED ↓';
+            statusEl.style.color = '#ff0040';
+            demote();
+        }
+    }, 1000);
+}
+
+// --- Rule 4: Flappy ---
+if (S.flappyActive && S.currentRule >= 4 && S.currentRule <= 9) runFlappy();
+
+// --- Rule 10: Finale ---
+if (S.currentRule === 10) runFinale();
+
+requestAnimationFrame(gameLoop);
+}
+
+// ======================================================
+//  CAMERA HELPER
+// ======================================================
+async function startCamera(videoId) {
+    const video  = document.getElementById(videoId);
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    video.srcObject = stream;
+    return new Promise(resolve => {
+        video.onloadedmetadata = () => { video.play(); resolve(video); };
+    });
+}
+
+// ======================================================
+//  RULE 5: FACE MESH (Asymmetric Eye)
+// ======================================================
+async function initFace() {
+    if (S.faceInit) return;
+    S.faceInit = true;
+
+    try {
+        const video  = await startCamera('face-video');
+        const canvas = document.getElementById('face-canvas');
+        const ctx    = canvas.getContext('2d');
+
+        const faceMesh = new FaceMesh({
+            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+        });
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence:  0.5
+        });
+
+        faceMesh.onResults(res => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!res.multiFaceLandmarks || !res.multiFaceLandmarks[0]) return;
+
+            ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+            const lm = res.multiFaceLandmarks[0];
+
+            // Left eye openness: landmarks 159 (upper) and 145 (lower)
+            const leftOpen  = Math.hypot(lm[159].x - lm[145].x, lm[159].y - lm[145].y);
+            // Right eye openness: landmarks 386 (upper) and 374 (lower)
+            const rightOpen = Math.hypot(lm[386].x - lm[374].x, lm[386].y - lm[374].y);
+
+            const leftClosed  = leftOpen  < 0.014;
+            const rightOpenOk = rightOpen > 0.018;
+
+            const badgeL = document.getElementById('badge-left');
+            const badgeR = document.getElementById('badge-right');
+
+            badgeL.innerText = leftClosed  ? 'LEFT: CLOSED ✓' : 'LEFT: OPEN ❌';
+            badgeL.className = leftClosed  ? 'badge ok' : 'badge';
+            badgeR.innerText = rightOpenOk ? 'RIGHT: OPEN ✓'  : 'RIGHT: CLOSED ❌';
+            badgeR.className = rightOpenOk ? 'badge ok' : 'badge';
+
+            if (leftClosed && rightOpenOk) {
+                S.solved[5] = true;
+                unlock(6);
+            } else {
+                S.solved[5] = false;
+            }
+        });
+
+        const cam = new Camera(video, {
+            onFrame: async () => { await faceMesh.send({ image: video }); },
+            width: 320, height: 240
+        });
+        cam.start();
+    } catch(e) {
+        document.getElementById('badge-left').innerText  = 'Camera error';
+        document.getElementById('badge-right').innerText = 'Camera error';
+    }
+}
+
+// ======================================================
+//  RULE 6: FRACTAL CAPTCHA
+// ======================================================
+let fZoom    = 1;
+let fFound   = 0;
+let dotsTotal = 3;
+
+function initFractal() {
+    const outer = document.getElementById('fractal-outer');
+    const cont  = document.getElementById('fractal-container');
+
+    outer.addEventListener('wheel', e => {
+        if (!e.shiftKey) return;
+        e.preventDefault();
+        fZoom = Math.max(1, Math.min(8, fZoom + (e.deltaY < 0 ? 0.3 : -0.3)));
+        cont.style.transform = `scale(${fZoom})`;
+    }, { passive: false });
+
+    buildFractal(cont, 1);
+}
+
+function buildFractal(parent, level) {
+    parent.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className   = 'f-grid';
+    const cols       = level === 1 ? 3 : 2;
+    const cellCount  = cols * cols;
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.style.width  = '100%';
+    grid.style.height = '100%';
+
+    for (let i = 0; i < cellCount; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'f-cell';
+
+        if (level === 3) {
+            // Possibly place a dot
+            const existingDots = document.querySelectorAll('.f-dot').length;
+            if (existingDots < dotsTotal && Math.random() < 0.12) {
+                cell.classList.add('has-dot');
+                const dot = document.createElement('div');
+                dot.className = 'f-dot';
+                cell.appendChild(dot);
+                cell.addEventListener('click', e => {
+                    e.stopPropagation();
+                    if (cell.classList.contains('found')) return;
+                    cell.classList.add('found');
+                    cell.querySelector('.f-dot').style.background = 'var(--green)';
+                    fFound++;
+                    document.getElementById('f-count').innerText = fFound;
+                    if (fFound >= dotsTotal) unlock(7);
+                });
+            } else {
+                // Wrong click → punish
+                cell.addEventListener('click', e => {
+                    e.stopPropagation();
+                    if (S.currentRule !== 6) return;
+                    punish("Clicked the wrong fractal cell.");
+                });
+            }
+        } else {
+            // Clickable to drill deeper
+            cell.addEventListener('click', e => {
+                e.stopPropagation();
+                if (S.currentRule !== 6) return;
+                buildFractal(cell, level + 1);
+            });
+        }
+        grid.appendChild(cell);
+    }
+    parent.appendChild(grid);
+}
+
+// ======================================================
+//  RULE 7: HAND POSE (Vulcan Salute)
+// ======================================================
+async function initHands() {
+    if (S.handsInit) return;
+    S.handsInit = true;
+
+    try {
+        const video  = await startCamera('hands-video');
+        const canvas = document.getElementById('hands-canvas');
+        const ctx    = canvas.getContext('2d');
+
+        const hands = new Hands({
+            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+        });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence:  0.5
+        });
+
+        hands.onResults(res => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const statusEl = document.getElementById('vulcan-status');
+
+            if (!res.multiHandLandmarks || res.multiHandLandmarks.length === 0) {
+                statusEl.innerText   = 'NO HAND DETECTED ❌';
+                statusEl.className   = '';
+                S.solved[7] = false;
+                return;
+            }
+
+            ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+            const lm = res.multiHandLandmarks[0];
+
+            // Vulcan: index(8)+middle(12) close | ring(16)+pinky(20) close | gap(12-16) large
+            const d_im  = dist2D(lm[8],  lm[12]);
+            const d_rp  = dist2D(lm[16], lm[20]);
+            const d_mr  = dist2D(lm[12], lm[16]);
+            const thumb_up = lm[4].y < lm[3].y; // thumb roughly up
+            const fingers_up = lm[8].y < lm[5].y && lm[12].y < lm[9].y; // fingers extended
+
+            const isVulcan = d_im < 0.06 && d_rp < 0.06 && d_mr > 0.07 && fingers_up;
+
+            statusEl.innerText  = isVulcan ? 'VULCAN DETECTED ✓' : 'NOT DETECTED ❌';
+            statusEl.className  = isVulcan ? 'ok' : '';
+            S.solved[7]         = isVulcan;
+            if (isVulcan) unlock(8);
+        });
+
+        const cam = new Camera(video, {
+            onFrame: async () => { await hands.send({ image: video }); },
+            width: 320, height: 240
+        });
+        cam.start();
+    } catch(e) {
+        document.getElementById('vulcan-status').innerText = 'Camera error';
+    }
+}
+
+function dist2D(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// ======================================================
+//  RULE 8: ARITHMETIC
+// ======================================================
+function initBattery() {
+    // Clock updater
+    setInterval(() => {
+        const d   = new Date();
+        const hh  = String(d.getHours()).padStart(2, '0');
+        const mm  = String(d.getMinutes()).padStart(2, '0');
+        const ss  = String(d.getSeconds()).padStart(2, '0');
+        document.getElementById('clock-disp').innerText = `${hh}:${mm}:${ss}`;
+    }, 1000);
+
+    // Battery
+    if (navigator.getBattery) {
+        navigator.getBattery().then(b => {
+            S.battery = Math.round(b.level * 100);
+            document.getElementById('batt-disp').innerText = S.battery;
+            b.addEventListener('levelchange', () => {
+                S.battery = Math.round(b.level * 100);
+                document.getElementById('batt-disp').innerText = S.battery;
+            });
+        });
+    }
+}
+
+function numpadPress(key) {
+    if (S.currentRule !== 8) return;
+
+    if (key === 'C') {
+        S.calcStr = '';
+    } else if (key === 'E') {
+        const d   = new Date();
+        const exp = d.getHours() + d.getMinutes() + d.getSeconds() + S.battery;
+        const ans = parseInt(S.calcStr, 10);
+
+        if (!isNaN(ans) && Math.abs(ans - exp) <= 10) {
+            document.getElementById('calc-display').style.color = 'var(--green)';
+            document.getElementById('calc-display').innerText   = `${ans} ✓`;
+            S.solved[8] = true;
+            setTimeout(() => unlock(9), 500);
+        } else {
+            document.getElementById('calc-display').style.color = 'var(--red)';
+            document.getElementById('calc-display').innerText   = `${S.calcStr || '_'} ✗`;
+            S.calcStr = '';
+            setTimeout(() => {
+                document.getElementById('calc-display').style.color = 'var(--green)';
+                document.getElementById('calc-display').innerText   = '_';
+            }, 800);
+        }
+        return;
+    } else {
+        if (S.calcStr.length < 5) S.calcStr += key;
+    }
+
+    document.getElementById('calc-display').innerText = S.calcStr || '_';
+    document.getElementById('calc-display').style.color = 'var(--green)';
+}
+
+// ======================================================
+//  RULE 9: POSE (Squat)
+// ======================================================
+async function initPose() {
+    if (S.poseInit) return;
+    S.poseInit = true;
+
+    try {
+        const video  = await startCamera('pose-video');
+        const canvas = document.getElementById('pose-canvas');
+        const ctx    = canvas.getContext('2d');
+
+        const pose = new Pose({
+            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+        });
+        pose.setOptions({ modelComplexity: 0, minDetectionConfidence: 0.5 });
+
+        pose.onResults(res => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const statusEl = document.getElementById('squat-status');
+
+            if (!res.poseLandmarks) {
+                statusEl.innerText  = 'NO POSE DETECTED';
+                statusEl.className  = '';
+                S.solved[9] = false;
+                return;
+            }
+
+            ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+            const lm = res.poseLandmarks;
+
+            // Angle at left knee: hip(23) → knee(25) → ankle(27)
+            const angle = angleBetween(lm[23], lm[25], lm[27]);
+
+            statusEl.innerText = `ANGLE: ${Math.round(angle)}°`;
+            const inRange = angle > 80 && angle < 100;
+            statusEl.className = inRange ? 'ok' : '';
+            S.solved[9] = inRange;
+            if (inRange) unlock(10);
+        });
+
+        const cam = new Camera(video, {
+            onFrame: async () => { await pose.send({ image: video }); },
+            width: 320, height: 240
+        });
+        cam.start();
+    } catch(e) {
+        document.getElementById('squat-status').innerText = 'Camera error';
+    }
+}
+
+function angleBetween(a, b, c) {
+    // Angle at vertex b
+    const ab = { x: a.x - b.x, y: a.y - b.y };
+    const cb = { x: c.x - b.x, y: c.y - b.y };
+    const dot = ab.x * cb.x + ab.y * cb.y;
+    const mag = Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y);
+    if (mag === 0) return 0;
+    return Math.acos(Math.max(-1, Math.min(1, dot / mag))) * (180 / Math.PI);
+}
+
+// ======================================================
+//  RULE 10: THE PRIMAL SCREAM
+// ======================================================
+function runFinale() {
+    const hasSquat  = S.solved[9];
+    const hasVulcan = S.solved[7];
+    const hasEye    = S.solved[5];
+    const hasScream = S.micVol > 95;
+
+    // Update requirement indicators
+    document.getElementById('req-squat').classList.toggle('met',  hasSquat);
+    document.getElementById('req-vulcan').classList.toggle('met', hasVulcan);
+    document.getElementById('req-eye').classList.toggle('met',    hasEye);
+    document.getElementById('req-scream').classList.toggle('met', hasScream);
+
+    const allMet = hasSquat && hasVulcan && hasEye && hasScream;
+
+    if (allMet) {
+        S.screamMs += 16;
+        const pct = Math.min(100, (S.screamMs / 3000) * 100);
+        document.getElementById('scream-bar-fill').style.width = `${pct}%`;
+        document.getElementById('scream-label').innerText = `HOLD IT… ${(S.screamMs / 1000).toFixed(1)}s / 3.0s`;
+
+        if (S.screamMs >= 3000) {
+            triggerVictory();
+        }
+    } else {
+        // Reset if any condition drops
+        if (S.screamMs > 0) {
+            S.screamMs = 0;
+            document.getElementById('scream-bar-fill').style.width = '0%';
+            document.getElementById('scream-label').innerText = 'SCREAM TO COMPLETE';
+        }
+    }
+}
+
+function triggerVictory() {
+    document.getElementById('victory-screen').classList.add('show');
+    S.started = false;
+}
+
+</script>
+</body>
+    
+</html>
