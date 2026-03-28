@@ -1,0 +1,581 @@
+/* THE 10 DEADLY CAPTCHAs - Brutalist CSS */
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    cursor: none !important;
+    background: #0a0a0a;
+    color: #ff0040;
+    font-family: 'VT323', monospace;
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+#flash-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: red;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10000;
+    transition: opacity 0.1s;
+}
+
+#flash-overlay.active {
+    opacity: 0.7;
+}
+
+#game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+#title {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.5rem;
+    text-align: center;
+    color: #ff0040;
+    text-shadow: 0 0 20px #ff0040, 0 0 40px #ff0040;
+    margin-bottom: 10px;
+    animation: glitch 2s infinite;
+    letter-spacing: 4px;
+}
+
+@keyframes glitch {
+    0%, 90%, 100% { transform: translate(0); }
+    92% { transform: translate(-3px, 1px); }
+    94% { transform: translate(3px, -1px); }
+    96% { transform: translate(-2px, 2px); }
+    98% { transform: translate(2px, -2px); }
+}
+
+#progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #1a1a1a;
+    border: 2px solid #ff0040;
+    margin-bottom: 10px;
+}
+
+#progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff0040, #ff6600);
+    transition: width 0.5s;
+}
+
+#status-text {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #888;
+    margin-bottom: 20px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0.3; }
+}
+
+.rule {
+    display: none;
+    border: 3px solid #ff0040;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: #111;
+    position: relative;
+    box-shadow: 0 0 15px rgba(255, 0, 64, 0.3), inset 0 0 30px rgba(0,0,0,0.5);
+}
+
+.rule.active {
+    display: block;
+    animation: ruleAppear 0.5s ease-out;
+}
+
+.rule.solved {
+    border-color: #00ff40;
+    box-shadow: 0 0 15px rgba(0, 255, 64, 0.3);
+}
+
+.rule.solved .rule-header {
+    color: #00ff40;
+}
+
+@keyframes ruleAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.rule-header {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.5rem;
+    color: #ff0040;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #ff0040;
+    padding-bottom: 8px;
+}
+
+.rule-desc {
+    font-size: 1.1rem;
+    color: #ccc;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.rule-desc code {
+    background: #222;
+    color: #ff6600;
+    padding: 2px 6px;
+    border: 1px solid #ff6600;
+}
+
+/* RULE 1: Sonic Cursor */
+#target-box {
+    width: 120px;
+    height: 50px;
+    background: #222;
+    border: 3px solid #00ff40;
+    color: #00ff40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    user-select: none;
+}
+
+#sonic-cursor {
+    width: 20px;
+    height: 20px;
+    background: #ff0040;
+    border: 2px solid #fff;
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 0 10px #ff0040;
+    transition: none;
+}
+
+#mic-volume-bar {
+    width: 100%;
+    height: 20px;
+    background: #1a1a1a;
+    border: 2px solid #ff6600;
+    margin-top: 10px;
+}
+
+#mic-volume-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00ff40, #ffff00, #ff0040);
+    transition: width 0.05s;
+}
+
+#mic-status {
+    color: #ff6600;
+    font-size: 1rem;
+    margin-top: 5px;
+}
+
+/* RULE 2: Pyodide */
+#pyodide-target {
+    font-size: 2rem;
+    color: #ffff00;
+    text-align: center;
+    margin-bottom: 5px;
+    font-family: 'Space Mono', monospace;
+}
+
+#pyodide-timer {
+    text-align: center;
+    color: #ff6600;
+    margin-bottom: 10px;
+}
+
+#python-editor {
+    width: 100%;
+    height: 150px;
+    background: #0d0d0d;
+    color: #00ff40;
+    border: 2px solid #00ff40;
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    padding: 10px;
+    resize: vertical;
+    outline: none;
+}
+
+#python-editor:focus {
+    box-shadow: 0 0 10px rgba(0, 255, 64, 0.5);
+}
+
+#pyodide-test-btn {
+    display: block;
+    margin: 10px auto;
+    padding: 10px 30px;
+    background: #ff0040;
+    color: #000;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 1.2rem;
+    cursor: none;
+    text-transform: uppercase;
+}
+
+#pyodide-test-btn:hover {
+    background: #ff6600;
+}
+
+#pyodide-output {
+    margin-top: 10px;
+    padding: 10px;
+    background: #0d0d0d;
+    border: 2px solid #333;
+    min-height: 40px;
+    color: #ccc;
+    font-size: 1rem;
+}
+
+/* RULE 3: Janitor's Curse */
+#trash-can {
+    font-size: 4rem;
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    transition: transform 0.1s;
+    user-select: none;
+}
+
+#trash-can.shaking {
+    animation: shake 0.1s infinite;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    25% { transform: translateX(-5px) rotate(-5deg); }
+    75% { transform: translateX(5px) rotate(5deg); }
+}
+
+.paper-ball {
+    width: 30px;
+    height: 30px;
+    background: #f0f0e8;
+    border-radius: 50%;
+    position: absolute;
+    cursor: none;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    z-index: 100;
+    user-select: none;
+}
+
+.paper-ball.dragging {
+    opacity: 0.8;
+    box-shadow: 0 0 15px #ffff00;
+}
+
+#janitor-timer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: #ff0040;
+    font-size: 1.5rem;
+    font-family: 'Space Mono', monospace;
+}
+
+/* RULE 4: Flappy Bird */
+#flappy-canvas {
+    display: block;
+    margin: 0 auto;
+    border: 3px solid #ff6600;
+    background: #87CEEB;
+}
+
+#flappy-status {
+    text-align: center;
+    color: #ff6600;
+    font-size: 1.3rem;
+    margin-top: 10px;
+}
+
+/* RULE 5 & 7 & 9: MediaPipe video/canvas */
+#face-video, #hands-video, #pose-video {
+    display: none;
+}
+
+#face-canvas, #hands-canvas, #pose-canvas {
+    display: block;
+    margin: 10px auto;
+    border: 3px solid #ff0040;
+    max-width: 100%;
+    background: #000;
+}
+
+#eye-status {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+    font-size: 1.2rem;
+}
+
+#left-eye-status, #right-eye-status {
+    padding: 5px 15px;
+    border: 2px solid #ff0040;
+}
+
+#vulcan-status {
+    text-align: center;
+    font-size: 1.3rem;
+    margin-top: 10px;
+    padding: 10px;
+    border: 2px solid #ff0040;
+}
+
+/* RULE 6: Fractal CAPTCHA */
+#fractal-viewport {
+    width: 100%;
+    height: 400px;
+    overflow: hidden;
+    border: 3px solid #ff0040;
+    position: relative;
+    background: #0d0d0d;
+    cursor: none;
+}
+
+#fractal-container {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: 0 0;
+}
+
+.fractal-grid {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+}
+
+.fractal-cell {
+    border: 1px solid #333;
+    background: #1a1a1a;
+    cursor: none;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+}
+
+.fractal-cell:hover {
+    background: #2a2a2a;
+    border-color: #ff0040;
+}
+
+.fractal-cell.has-target {
+    background: #1a0a0a;
+}
+
+.fractal-cell .target-shape {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.fractal-cell.found {
+    background: rgba(0, 255, 64, 0.2);
+    border-color: #00ff40;
+}
+
+#fractal-zoom-level, #fractal-found {
+    text-align: center;
+    color: #ff6600;
+    font-size: 1.1rem;
+    margin-top: 5px;
+}
+
+/* RULE 8: Numpad */
+#time-display, #battery-display {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #ffff00;
+    margin-bottom: 5px;
+    font-family: 'Space Mono', monospace;
+}
+
+#numpad-display {
+    text-align: center;
+    font-size: 2rem;
+    color: #00ff40;
+    margin: 10px 0;
+    font-family: 'Space Mono', monospace;
+    border: 2px solid #00ff40;
+    padding: 10px;
+    background: #0d0d0d;
+}
+
+#numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.num-btn {
+    padding: 15px;
+    font-family: 'Space Mono', monospace;
+    font-size: 1.5rem;
+    background: #222;
+    color: #ff0040;
+    border: 2px solid #ff0040;
+    cursor: none;
+    transition: background 0.1s;
+}
+
+.num-btn:hover {
+    background: #ff0040;
+    color: #000;
+}
+
+/* RULE 9: Squat */
+#squat-status {
+    text-align: center;
+    font-size: 1.3rem;
+    margin-top: 10px;
+    padding: 10px;
+    border: 2px solid #ff0040;
+}
+
+/* RULE 10: Primal Scream */
+#scream-requirements {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#scream-requirements > div {
+    padding: 10px;
+    border: 2px solid #ff0040;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+#scream-requirements > div.met {
+    border-color: #00ff40;
+    color: #00ff40;
+}
+
+#scream-progress-bar {
+    width: 100%;
+    height: 30px;
+    background: #1a1a1a;
+    border: 3px solid #ff0040;
+    margin-bottom: 10px;
+}
+
+#scream-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff0040, #ff6600, #ffff00);
+    transition: width 0.1s;
+}
+
+#scream-status {
+    text-align: center;
+    font-size: 1.3rem;
+    color: #ff6600;
+}
+
+/* Victory Screen */
+#victory-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+}
+
+#victory-screen.hidden {
+    display: none;
+}
+
+#victory-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 4rem;
+    color: #00ff40;
+    text-shadow: 0 0 30px #00ff40, 0 0 60px #00ff40;
+    animation: victoryPulse 1s infinite;
+    text-align: center;
+}
+
+@keyframes victoryPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+#victory-sub {
+    font-size: 1.5rem;
+    color: #888;
+    margin-top: 20px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ff0040;
+}
+
+/* Volume Bar Styles */
+#volume-container {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 200px;
+    height: 20px;
+    background-color: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000; /* Ensure it stays on top of other elements */
+}
+
+#volume-bar {
+    height: 100%;
+    background-color: #76c7c0;
+    transition: width 0.1s ease;
+}
+
+#volume-percentage {
+    font-size: 12px;
+    color: #333;
+    margin-left: 5px;
+}
